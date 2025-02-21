@@ -1,84 +1,89 @@
-## Περιγραφή Έργου
-Αυτό το έργο υλοποιεί ένα σύστημα διαχείρισης εργασιών (jobs) χρησιμοποιώντας pipes και σήματα για επικοινωνία μεταξύ διεργασιών. 
-Το σύστημα περιλαμβάνει έναν server (`jobexecutorserver`) που εκτελεί εργασίες και έναν client (`jobcommander`) που επικοινωνεί 
-με τον server για να υποβάλλει, διαχειρίζεται και παρακολουθεί εργασίες.
+## Project Description
+This project implements a job management system using pipes and signals for inter-process communication. The system includes a server (`jobexecutorserver`)
+that executes jobs and a client (`jobcommander`) that communicates with the server to submit, manage, and monitor jobs.
 
+---
 
-## Πώς να Τρέξετε το Πρόγραμμα
+## Table of Contents
+- [How to Run the Program](#how-to-run-the-program)
+- [Communication Structure](#communication-structure)
+- [File Descriptions](#file-descriptions)
+- [Available Commands](#available-commands)
+- [Bash Scripts](#bash-scripts)
+- [Implementation Notes](#implementation-notes)
 
-1. **Μεταγλώττιση του έργου**
-   bash
+---
+
+## How to Run the Program
+
+2. **Compile the project**
+   ```bash
    make
+   ```
 
-2. **Εκτέλεση εντολών μέσω του `jobcommander`**
-   bash
-   ./jobcommander [επιλογές]
+3. **Execute commands using `jobcommander`**
+   ```bash
+   ./jobcommander [options]
+   ```
 
-3. **Καθαρισμός αρχείων μετά την έξοδο**
-   bash
+4. **Clean up files after exiting**
+   ```bash
    make clean
+   ```
 
-## Δομή Επικοινωνίας
+---
 
-- `pipe1`: Ο `jobcommander` γράφει εδώ, και ο `jobexecutorserver` διαβάζει.
-- `pipe2`: Ο `jobexecutorserver` γράφει εδώ, και ο `jobcommander` διαβάζει.
+## Communication Structure
 
+- `pipe1`: The `jobcommander` writes here, and the `jobexecutorserver` reads from it.
+- `pipe2`: The `jobexecutorserver` writes here, and the `jobcommander` reads from it.
 
-## Περιγραφή των Αρχείων
+---
 
-### Εκτελέσιμα Προγράμματα
+## File Descriptions
 
-- **`jobcommander`**:
-  - Ελέγχει αν υπάρχει το αρχείο `jobexecutorserver.txt`. Αν όχι, ξεκινά τον server.
-  - Διαβάζει το PID του server από το αρχείο και ανοίγει τα FIFOs.
-  - Μετατρέπει τα arguments από το terminal σε μία συμβολοσειρά (string) διαχωρισμένη με κενά (`" "`).
-  - Στέλνει σήμα `SIGUSR1` στον server, ώστε να διαβάσει από το `pipe1` και να εκτελέσει την εντολή.
+### Executable Programs
+
+- **`jobcommander`**: 
+  - Checks if the file `jobexecutorserver.txt` exists. If not, it starts the server.
+  - Reads the server’s PID from the file and opens the FIFOs.
+  - Converts terminal arguments into a single space-separated string.
+  - Sends a `SIGUSR1` signal to the server, instructing it to read from `pipe1` and execute the command.
 
 - **`jobexecutorserver`**:
-  - Τρέχει σε έναν άπειρο βρόχο (`while`) και περιμένει σήματα.
-  - Διαβάζει τις εντολές από το `pipe1` και εκτελεί την αντίστοιχη λειτουργία μέσω ενός `switch-case`.
-  - Χειρίζεται τα σήματα `SIGUSR1` και `SIGCHLD`.
-  - Ο `SIGUSR1` ειδοποιεί τον server να διαβάσει νέα εντολή από το `pipe1`.
-  - Ο `SIGCHLD` καταγράφει την ολοκλήρωση διεργασιών και τις αφαιρεί από τη λίστα των εκτελούμενων jobs.
+  - Runs in an infinite loop (`while`) waiting for signals.
+  - Reads commands from `pipe1` and executes the corresponding function via a `switch-case` statement.
+  - Handles `SIGUSR1` and `SIGCHLD` signals.
+  - `SIGUSR1` notifies the server to read a new command from `pipe1`.
+  - `SIGCHLD` registers completed processes and removes them from the running jobs list.
 
+---
 
-## Διαθέσιμες Εντολές
+## Available Commands
 
-- **`issuejob`**: Δημιουργεί και προσθέτει μία νέα εργασία στην ουρά.
-- **`stop`**: Σταματά μία εργασία που εκτελείται ή βρίσκεται σε αναμονή.
-- **`poll running`**: Επιστρέφει τις τρέχουσες ενεργές διεργασίες.
-- **`poll queued`**: Επιστρέφει τις εργασίες που περιμένουν στην ουρά εκτέλεσης.
+- **`issuejob`**: Creates and adds a new job to the queue.
+- **`stop`**: Stops a job that is either running or queued.
+- **`poll running`**: Returns currently active jobs.
+- **`poll queued`**: Returns jobs waiting in the execution queue.
 
+---
 
 ## Bash Scripts
 
 - **`multijob.sh`**:
-  - Διαβάζει και εκτελεί εντολές από αρχεία γραμμής προς γραμμή.
+  - Reads and executes commands from files line by line.
 
 - **`allJobsStop.sh`**:
-  - Ανακτά τις ενεργές και αναμονής εργασίες.
-  - Σταματά όλες τις τρέχουσες εργασίες μέσω του `jobcommander stop`.
+  - Retrieves active and queued jobs.
+  - Stops all running jobs using `jobcommander stop`.
 
-## Σημειώσεις Υλοποίησης
+---
 
-- Ο `jobexecutorserver` χρησιμοποιεί μία ουρά (`queue`) για να διατηρεί τις αναμενόμενες εργασίες (`the_one queue`) και έναν πίνακα (`vector`) για τις τρέχουσες εκτελούμενες εργασίες (`running vector`).
-- Οι εργασίες εκτελούνται μέσω `fork` και `execvp`.
-- Οι πληροφορίες επιστρέφονται στον `jobcommander` μέσω του `pipe2`.
+## Implementation Notes
 
-Παραδείγματα εντολών:
-issueJob
-	jobCommander issueJob ls -l /path/to/directory1
-	jobCommander issueJob wget aUrl
+- The `jobexecutorserver` uses a queue (`the_one queue`) to store pending jobs and a vector (`running vector`) to track currently executing jobs.
+- Jobs are executed using `fork` and `execvp`.
+- Information is returned to `jobcommander` via `pipe2`.
 
-setConcurrency
-	jobCommander setConcurrency 4
-	jobCommander setConcurrency 1
-stop
-	jobCommander stop job_1
-	jobCommander stop job_15
-poll
-	jobCommander poll running
-	jobCommander poll queued
-exit
-	jobCommander exit
+
 
