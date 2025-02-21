@@ -1,0 +1,84 @@
+## Περιγραφή Έργου
+Αυτό το έργο υλοποιεί ένα σύστημα διαχείρισης εργασιών (jobs) χρησιμοποιώντας pipes και σήματα για επικοινωνία μεταξύ διεργασιών. 
+Το σύστημα περιλαμβάνει έναν server (`jobexecutorserver`) που εκτελεί εργασίες και έναν client (`jobcommander`) που επικοινωνεί 
+με τον server για να υποβάλλει, διαχειρίζεται και παρακολουθεί εργασίες.
+
+
+## Πώς να Τρέξετε το Πρόγραμμα
+
+1. **Μεταγλώττιση του έργου**
+   bash
+   make
+
+2. **Εκτέλεση εντολών μέσω του `jobcommander`**
+   bash
+   ./jobcommander [επιλογές]
+
+3. **Καθαρισμός αρχείων μετά την έξοδο**
+   bash
+   make clean
+
+## Δομή Επικοινωνίας
+
+- `pipe1`: Ο `jobcommander` γράφει εδώ, και ο `jobexecutorserver` διαβάζει.
+- `pipe2`: Ο `jobexecutorserver` γράφει εδώ, και ο `jobcommander` διαβάζει.
+
+
+## Περιγραφή των Αρχείων
+
+### Εκτελέσιμα Προγράμματα
+
+- **`jobcommander`**:
+  - Ελέγχει αν υπάρχει το αρχείο `jobexecutorserver.txt`. Αν όχι, ξεκινά τον server.
+  - Διαβάζει το PID του server από το αρχείο και ανοίγει τα FIFOs.
+  - Μετατρέπει τα arguments από το terminal σε μία συμβολοσειρά (string) διαχωρισμένη με κενά (`" "`).
+  - Στέλνει σήμα `SIGUSR1` στον server, ώστε να διαβάσει από το `pipe1` και να εκτελέσει την εντολή.
+
+- **`jobexecutorserver`**:
+  - Τρέχει σε έναν άπειρο βρόχο (`while`) και περιμένει σήματα.
+  - Διαβάζει τις εντολές από το `pipe1` και εκτελεί την αντίστοιχη λειτουργία μέσω ενός `switch-case`.
+  - Χειρίζεται τα σήματα `SIGUSR1` και `SIGCHLD`.
+  - Ο `SIGUSR1` ειδοποιεί τον server να διαβάσει νέα εντολή από το `pipe1`.
+  - Ο `SIGCHLD` καταγράφει την ολοκλήρωση διεργασιών και τις αφαιρεί από τη λίστα των εκτελούμενων jobs.
+
+
+## Διαθέσιμες Εντολές
+
+- **`issuejob`**: Δημιουργεί και προσθέτει μία νέα εργασία στην ουρά.
+- **`stop`**: Σταματά μία εργασία που εκτελείται ή βρίσκεται σε αναμονή.
+- **`poll running`**: Επιστρέφει τις τρέχουσες ενεργές διεργασίες.
+- **`poll queued`**: Επιστρέφει τις εργασίες που περιμένουν στην ουρά εκτέλεσης.
+
+
+## Bash Scripts
+
+- **`multijob.sh`**:
+  - Διαβάζει και εκτελεί εντολές από αρχεία γραμμής προς γραμμή.
+
+- **`allJobsStop.sh`**:
+  - Ανακτά τις ενεργές και αναμονής εργασίες.
+  - Σταματά όλες τις τρέχουσες εργασίες μέσω του `jobcommander stop`.
+
+## Σημειώσεις Υλοποίησης
+
+- Ο `jobexecutorserver` χρησιμοποιεί μία ουρά (`queue`) για να διατηρεί τις αναμενόμενες εργασίες (`the_one queue`) και έναν πίνακα (`vector`) για τις τρέχουσες εκτελούμενες εργασίες (`running vector`).
+- Οι εργασίες εκτελούνται μέσω `fork` και `execvp`.
+- Οι πληροφορίες επιστρέφονται στον `jobcommander` μέσω του `pipe2`.
+
+Παραδείγματα εντολών:
+issueJob
+	jobCommander issueJob ls -l /path/to/directory1
+	jobCommander issueJob wget aUrl
+
+setConcurrency
+	jobCommander setConcurrency 4
+	jobCommander setConcurrency 1
+stop
+	jobCommander stop job_1
+	jobCommander stop job_15
+poll
+	jobCommander poll running
+	jobCommander poll queued
+exit
+	jobCommander exit
+
